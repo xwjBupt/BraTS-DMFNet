@@ -3,6 +3,7 @@ Load the 'nii' file and save as pkl file.
 Carefully check your path please.
 """
 
+from os import name
 import pickle
 import os
 import numpy as np
@@ -60,7 +61,7 @@ def savepkl(data, path):
 
 def process_f32(path, train):
     """ Set all Voxels that are outside of the brain mask to 0"""
-
+    name = path.split('/')[-1]
     img_t1 = np.array(nib.load(glob.glob(path + "/*_t1.nii.gz")[0]).get_fdata(), dtype='float32', order='C')
     img_t1ce = np.array(nib.load(glob.glob(path + "/*_t1ce.nii.gz")[0]).get_fdata(), dtype='float32', order='C')
     img_t2 = np.array(nib.load(glob.glob(path + "/*_t2.nii.gz")[0]).get_fdata(), dtype='float32', order='C')
@@ -90,16 +91,16 @@ def process_f32(path, train):
         images[..., k] = x
 
     if train:
-        output = 'Training_data_f32.pkl'
+        output = '/home/amax/BraTS-DMFNet/brats2020/train/'+name+'@data_f32.pkl'
         print("saving:", output)
         savepkl(data=(images, label), path=output)
     else:
-        output = 'Val_data_f32.pkl'
+        output = '/home/amax/BraTS-DMFNet/brats2020/val/'+name+'@data_f32.pkl'
         print("saving:", output)
         savepkl(data=(images), path=output)
 
 
-def doit(root):
+def doit(root,train):
     # root, has_label = dset['root']
     # file_list = os.path.join(root, dset['flist'])
     # subjects = open(file_list).read().splitlines()
@@ -107,9 +108,9 @@ def doit(root):
     # paths = [os.path.join(root, sub, name + '_') for sub, name in zip(subjects, names)]
     paths = glob.glob(root + '/Bra*')
     for path in tqdm(paths):
-        process_f32(path)
+        process_f32(path,train)
 
 
-doit('/home/amax/MICCAI_BraTS2020_TrainingData')
-doit('/home/amax/MICCAI_BraTS2020_ValidationData')
+doit('/home/amax/MICCAI_BraTS2020_TrainingData',True)
+doit('/home/amax/MICCAI_BraTS2020_ValidationData',False)
 # doit(test_set)

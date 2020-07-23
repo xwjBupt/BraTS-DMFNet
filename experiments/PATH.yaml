@@ -1,4 +1,4 @@
-train_data_dir: /data2/liuxiaopeng/Data/BraTS2018/Train
-valid_data_dir: /data2/liuxiaopeng/Data/BraTS2018/Valid
-test_data_dir: /data2/liuxiaopeng/Data/BraTS2018/Test
+train_data_dir: /home/amax/BraTS-DMFNet/brats2020/train
+valid_data_dir: /home/amax/BraTS-DMFNet/brats2020/val
+test_data_dir: /home/amax/BraTS-DMFNet/brats2020/test
 ckpt_dir: ./ckpts

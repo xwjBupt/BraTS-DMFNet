@@ -4,12 +4,15 @@ import os
 import time
 import logging
 import random
-
+import glob
+from tensorboardX import writer
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim
 from torch.utils.data import DataLoader
-
+import wandb
+from tensorboardX import SummaryWriter
+import time
 cudnn.benchmark = True
 
 import numpy as np
@@ -25,11 +28,11 @@ import setproctitle  # pip install setproctitle
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('-cfg', '--cfg', default='1_EESPNet_16x_PRelu_GDL_all', required=True, type=str,
+parser.add_argument('-cfg', '--cfg', default='/home/amax/BraTS-DMFNet/experiments/DMFNet_GDL_all.yaml', type=str,
                     help='Your detailed configuration of the network')
-parser.add_argument('-gpu', '--gpu', default='0', type=str, required=True,
+parser.add_argument('-gpu', '--gpu', default='4,5,6,7', type=str,
                     help='Supprot one GPU & multiple GPUs.')
-parser.add_argument('-batch_size', '--batch_size', default=1, type=int,
+parser.add_argument('-batch_size', '--batch_size', default=16, 
                     help='Batch size')
 parser.add_argument('-restore', '--restore', default='model_last.pth', type=str)# model_last.pth
 
@@ -44,6 +47,8 @@ ckpts = args.makedir()
 args.resume = os.path.join(ckpts,args.restore) # specify the epoch
 
 def main():
+    timestamp = time.strftime("%m-%d_%H-%M", time.localtime())
+
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     assert torch.cuda.is_available(), "Currently, we only support CUDA version"
     torch.manual_seed(args.seed)
@@ -78,7 +83,9 @@ def main():
     # Data loading code
     Dataset = getattr(datasets, args.dataset) #
 
-    train_list = os.path.join(args.train_data_dir, args.train_list)
+    train_list = glob.glob('/home/amax/BraTS-DMFNet/brats2020/train/*.pkl')
+
+    #train_list = os.path.join(args.train_data_dir, args.train_list)
     train_set = Dataset(train_list, root=args.train_data_dir, for_train=True,transforms=args.train_transforms)
 
     num_iters = args.num_iters or (len(train_set) * args.num_epochs) // args.batch_size
@@ -100,6 +107,10 @@ def main():
     losses = AverageMeter()
     torch.set_grad_enabled(True)
 
+    wandb.init(config=args, project='Brats2020', name=timestamp + '@' + 'DMFNet_GDL_all.yaml',
+                   sync_tensorboard=True)
+    writer = SummaryWriter()
+    
     for i, data in enumerate(train_loader, args.start_iter):
 
         elapsed_bsize = int( i / enum_batches)+1
@@ -147,9 +158,9 @@ def main():
 
         msg = 'Iter {0:}, Epoch {1:.4f}, Loss {2:.7f}'.format(i+1, (i+1)/enum_batches, losses.avg)
         logging.info(msg)
-
+        writer.add_scalar('loss',losses.avg,i)
         losses.reset()
-
+    writer.close()
     i = num_iters + args.start_iter
     file_name = os.path.join(ckpts, 'model_last.pth')
     torch.save({
