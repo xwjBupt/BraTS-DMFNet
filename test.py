@@ -4,7 +4,7 @@ import os
 import time
 import logging
 import random
-
+import glob
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -32,7 +32,7 @@ parser.add_argument('-mode', '--mode', default=0, required=True, type=int,choice
 
 parser.add_argument('-gpu', '--gpu', default='0,1,2,3', type=str)
 
-parser.add_argument('-is_out', '--is_out', default=False, type=str2bool,
+parser.add_argument('-is_out', '--is_out', default=True, type=str2bool,
                     help='If ture, output the .nii file')
 
 
@@ -100,15 +100,16 @@ def main():
         raise ValueError
 
     Dataset = getattr(datasets, args.dataset) #
-    valid_list = os.path.join(root_path, args.valid_list)
+    #valid_list = os.path.join(root_path, args.valid_list)
+    valid_list = glob.glob('/home/amax/BraTS-DMFNet/brats2020/val/*.pkl')
+
     valid_set = Dataset(valid_list, root=root_path,for_train=False, transforms=args.test_transforms)
 
     valid_loader = DataLoader(
         valid_set,
         batch_size=1,
         shuffle=False,
-        collate_fn=valid_set.collate,
-        num_workers=10,
+        num_workers=0,
         pin_memory=True)
 
     if args.is_out:
@@ -128,7 +129,6 @@ def main():
             cfg=args.cfg,
             savepath=out_dir,
             save_format = args.save_format,
-            names=valid_set.names,
             scoring=is_scoring,
             verbose=args.verbose,
             use_TTA=args.use_TTA,

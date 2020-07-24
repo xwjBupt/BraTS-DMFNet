@@ -45,8 +45,8 @@ def validate_softmax(
         model,
         cfg='',
         savepath='', # when in validation set, you must specify the path to save the 'nii' segmentation results here
-        names=None, # The names of the patients orderly!
-        scoring=True, # If true, print the dice score.
+        
+        scoring=False, # If true, print the dice score.
         verbose=False,
         use_TTA=False, # Test time augmentation, False as default!
         save_format=None, # ['nii','npy'], use 'nii' as default. Its purpose is for submission.
@@ -59,12 +59,17 @@ def validate_softmax(
     model.eval()
     runtimes = []
     vals = AverageMeter()
+    affine = np.array([[-1., - 0., - 0., 0.],
+                               [-0., - 1., - 0., 239.],
+                               [0., 0., 1., 0.],
+                               [0., 0., 0., 1.]])
+
     for i, data in enumerate(valid_loader):
         target_cpu = data[1][0, :H, :W, :T].numpy() if scoring else None # when validing, make sure that argument 'scoring' must be false, else it raise a error!
-
-        if cpu_only == False:
-            data = [t.cuda(non_blocking=True) for t in data]
-        x, target = data[:2]
+        # if cpu_only == False:
+        #     data = [t.cuda(non_blocking=True) for t in data]
+        x, target,name = data
+        x = x[0].cuda(non_blocking=True)
 
         # compute output
         if not use_TTA:
@@ -97,21 +102,20 @@ def validate_softmax(
             ET_voxels = (output == 3).sum()
             if ET_voxels < 500:
                 output[np.where(output == 3)] = 1
-
-        msg = 'Subject {}/{}, '.format(i+1, len(valid_loader))
-        name = str(i)
-        if names:
-            name = names[i]
-            msg += '{:>20}, '.format(name)
+        msg = 'Subject {}/{}\n'.format(i+1, len(valid_loader))
+        # name = str(i)
+        # if names:
+        #     name = names[i]
+        #     msg += '{:>20}, '.format(name)
 
         if savepath:
             # .npy for farthur model ensemble
             # .nii for directly model submission
             assert save_format in ['npy','nii']
             if save_format == 'npy':
-                np.save(os.path.join(savepath, name + '_preds'), output)
+                np.save(os.path.join(savepath, 'submission',name[0] + '_preds'), output)
             if save_format == 'nii':
-                oname = os.path.join(savepath,'submission', name + '.nii.gz')
+                oname = os.path.join(savepath, 'submission',name[0] + '.nii.gz')
                 seg_img = np.zeros(shape=(H,W,T),dtype=np.uint8)
 
                 seg_img[np.where(output==1)] = 1
@@ -120,7 +124,7 @@ def validate_softmax(
                 if verbose:
                     print('1:',np.sum(seg_img==1),' | 2:',np.sum(seg_img==2),' | 4:',np.sum(seg_img==4))
                     print('WT:',np.sum((seg_img==1)|(seg_img==2)|(seg_img==4)),' | TC:',np.sum((seg_img==1)|(seg_img==4)),' | ET:',np.sum(seg_img==4))
-                nib.save(nib.Nifti1Image(seg_img, None),oname)
+                nib.save(nib.Nifti1Image(seg_img, affine),oname)
 
                 if snapshot:
                     """ --- grey figure---"""
@@ -135,8 +139,8 @@ def validate_softmax(
                     Snapshot_img[:, :, 2, :][np.where(output == 3)] = 255
 
                     for frame in range(T):
-                        os.makedirs(os.path.join(savepath,'snapshot',name),exist_ok=True)
-                        scipy.misc.imsave(os.path.join(savepath,'snapshot',name,str(frame)+'.png'), Snapshot_img[:,:,:,frame])
+                        os.makedirs(os.path.join(savepath,'snapshot',name[0]),exist_ok=True)
+                        scipy.misc.imsave(os.path.join(savepath,'snapshot',name[0],str(frame)+'.png'), Snapshot_img[:,:,:,frame])
 
         if scoring:
             scores = softmax_output_dice(output, target_cpu)
